@@ -1,0 +1,367 @@
+---
+title: "第一屆金股獎 - PTT股版績效回測及分析"
+author: "好想吃午餐"
+date: "2021/6/21"
+output: 
+ html_document:
+  highlight: tango
+  toc: yes
+  toc_float:
+    collapsed: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(python.reticulate = FALSE, error=TRUE, results = 'hold', out.width='70%', fig.align = 'center', message = FALSE)
+```
+一、研究動機  
+------
+ + 2020年歷經股市還有台積電的大漲，許多菜籃族以及學生迫不及待的想要進入股市撈錢，但我們想要了解，大部分的普通人進入股市真的會賺錢嗎？難道網路上的梗圖都是假的？所以我們希望透過台灣最大交流論壇 -  PTT的stock版去模擬大家的投資情況，並分析文本內容與報酬之間是否有關聯。
+
+<center class="half">
+ <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\1.jpg" width="30%" height="30%" /> <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\2.jpg" width="30%" height="30%" /> 
+</center>
+
+<br>
+
+二、實踐方法    
+------ 
+
+### 1. 爬蟲    
+ + 我們使用python爬取PTT股版自2018.01.01-2021.06.01分類為[標的]的文章，包含標題、作者、URL、日期、推數、噓數、留言數、內文以及圖片網址。  
+  
+   (1) 首先利用python的BeautifulSoup從PTT的標題頁面爬取標題以及網址：  
+       + 詳見 title&url.py  
+   (2) 從網址爬取作者、URL、日期、推數、噓數、留言數、內文以及圖片網址：  
+       + 詳見 pttstock.py
+    <br><br>
+ + 爬下來的文件分別為 2018stock.csv、2019stock.csv、2020stock.csv、2021stock.csv
+  
+### 2. 資料清洗    
+ + 再來我們利用python、excel、R語言同時做資料的清理，將資料以以下的標準輸出為統一格式：
+<br>
+   + 增加標的(股票代號.csv檔相互對照標的名稱)、分類、分析/正文、進退場機制四個欄位
+   + 清除雜字
+   + 依據分類判斷多空，依據關鍵字判斷長短，優先判斷長線，剩餘則為短線
+   + 長線判斷標準 : 關鍵字含長線、長期投資、長期、不停利、不停損、長投、放（但不是"放空"）
+   + 短線判斷標準 : 關鍵字含短線、（有"停利""停損"但沒有"不停利""不停損"）、放空、退場、出場
+<br><br>
+ + 清洗完的文件分別為finalclean2018.csv、finalclean2019.csv、finalclean2020.csv、finalclean2021.csv： 
+<br>
+   + R部分 : cleanr.rmd
+   + Python部分 : cleanpy.py
+   + 統整 : unify.rmd
+
+<br>
+
+三、資料分析與發現  
+---------
+最後我們將乾淨的資料做資料分析，分述如下：
+
+##### **名詞解釋**
+  + 年化報酬率：因不同時間長短的報酬率無法互相比較，所以將投資期間都變成以「一年」為單位計算報酬率  
+  + 累積報酬率：投資期間的總報酬率，不考慮資金投入時間的長短效益  
+  + 敏感度分析：透過更改不確定的變量以測試模型的穩健性  
+  + 大盤：大盤一般泛指在股票市場的主要指數，以台股而言，最具代表性的指數即為台股加權股價指數  
+
+<br>
+
+### 1. 簡單敘述性統計
+ 
+ + 清洗完成的資料總計**5012**篇標的文   
+ 
+|  分類   | 看多  | 看空 | 長線  | 短線  |
+|  :----:  | :----:  | :----:  | :----:  | :----:  |
+| 數量  | 4058 |  954 | 888 | 4124 |
+
+ + 平均每位鄉民發了 **2.09** 篇標的文
+ + 平均每篇（可計算績效的）標的文的年化報酬率為 **15.65%**，篇數(n) = 2907
+ + 發文數量前10名的作者，其平均年化報酬率為**26.18%**
+ + 各年度發文篇數：  
+
+|  年份   | 2018  | 2019 | 2020  | 2021（上半年）  |
+|  :----:  | :----:  | :----:  | :----:  | :----:  |
+| 篇數  | 1342 |  1045 | 1503 | 1122 |
+
+ + 累積報酬率趨近常態分配，右尾多極端值  
+ <br>
+  <center class="half">
+ <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\Return_Distribution.png" alt="Return&Distribution" width="400" height="300" />
+ </center>
+ + 發文標的數統計  
+ <br>
+  <center class="half">
+  <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\人氣標的.png" 
+  alt="人氣標的" width="250" height="300" />
+  </center>
+程式碼：return.rmd、statistics.rmd
+
+<br>
+
+### 2. 投資期間敏感度分析  
+
+  + 原先設定投資期間並計算績效方式為長線時間250天，短線時間5天，截至6/10為止。
+  + 將短線及長線的時間分別縮短及增加，觀察年化報酬率以及累積報酬率是否有明顯差異。
+  
+#### **結論：短期年化報酬率有顯著差異、長期則無顯著差異**
+ 
+|  短線   | 3天  | 5天 | 7天  |
+|  :----:  | :----:  | :----:  | :----:  |
+| 平均累積報酬率  | 0.26% |  0.33% | 0.21% |
+| 平均年化報酬率  | **21.89%** | 16.42% | 7.43% |  
+
+|  長線   | 250天  | 300天 | 350天  |
+|  :----:  | :----:  | :----:  | :----:  |
+| 平均累積報酬率  | 11.52% | 15.33% | **18.08%** |
+| 完整天數  | 10.86% | **14.35%** | 13.32% |
+| 平均年化報酬率  | 11.52% | 12.77% | **12.92%** |
+| 完整天數  | 10.86% | **11.96%** | 9.52% |  
+
+ *註：完整天數為可計算250天之標的文的報酬率
+ <br>
+ 程式碼：return.rmd
+
+<br>
+
+### 3. 績效與大盤的比較
+
+#### **結論：股版平均報酬率未必能超越大盤**
+
+ + 績效前50名的作者平均報酬顯著超越大盤，發文數前50名的作者則不一定
+
+|     | 2018  | 2019 | 2020  | 2021（至6/10）  | 
+|  :----:  | :----:  | :----:  | :----:  | :----:  | 
+| 大盤  | -8.6% | **23.3%** | 22.8% | **16.57%** | 
+| PTT股版  | **23.78%** | 8.5% | **24.65%** | 1.7% | 
+| 發文前50名平均報酬  | 32.58% | 7.5% | 32.31% | 17.8% | 
+| 績效前50名平均報酬  | 460.21% | 304.41% | 591.45% | 689.71% |
+
+<br>
+
+### 4. 股王排名
+ + **最佳績效獎（累積報酬率）**
+
+| 時間  | 標的  | 作者 | 操作  | 績效  | 
+|  :----:  | :----:  | :----:  | :----:  | :----:  | 
+| 2020/11/23  | 長榮 | cinghsang | 長多 | 287.67% |
+| 2020/5/8 | 圓剛 | ALAN | 長多 | 255.31% | 
+| 2020/4/28  | 聯電 | dust | 長多 | 247.62% | 
+|  2020/12/31 | 高端疫苗 | 米食主義者 | 長多 | 226.15% | 
+| 2020/3/17  | 群創 | 南茂哥 | 長多 | 188.65% |
+
+ + **最佳效率獎（年化報酬率）**
+
+| 時間  | 標的  | 作者 | 操作  | 績效  | 
+|  :----:  | :----:  | :----:  | :----:  | :----:  | 
+| 2020/4/27  | 康那香 | 還敢皮啊 | 短多 | 2391.17% |
+| 2020/6/17  | 愛普 | 麻瓜 |短多 | 2299.84%| 
+| 2020/7/17  | 美德醫療-DR | 高級本省人 | 短多| 1859.67% | 
+| 2021/5/30 | 高端疫苗 | 酵公菌 | 短空 | 1833.62% | 
+| 2020/4/20  | 寶齡富錦 | 股票戰船 | 短多 | 1828.61% |
+
+ + **股海明燈獎（發文數超過5篇且累積報酬率最高）**
+ 
+| 作者 | 篇數  | 平均績效  | 
+|  :----:  | :----:  | :----:  |
+| 南茂哥 | 9 | 42.87% |
+| Mr.King | 11 | 29.73% | 
+| 妤欣 | 13 | 23.04% | 
+| Chupei | 9  | 19.56% | 
+| 馬芙丸5566 | 7 | 18.09% |
+
+程式碼：statistics.rmd
+
+<br>
+
+### 5. 績效與留言數
+
+ + 2020年後標的文熱度較高
+ + 2020年高報酬標的文比其他年多，我們推測與**疫情**有關：  
+   + 美聯儲推出提振經濟的政策刺激股市
+   + 大家都從股市獲得高報酬因此更願意貼標的文  
+<br>
+ <center class="half">
+  <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\Scatter_Comment&Return.png" 
+  alt="Scatter_Comment&Return" width="50%" height="50%" />
+</center>
+<br> 
+<br>
+ + 高人氣標的文極端報酬比例較高
+ + 圖中報酬率以30%、10%、0%、-10%、-30%為界      
+<br>
+ <center class="half">
+  <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\Bar_Popularity&Return.png" 
+  alt="Bar_Popularity&Return" width="50%" height="50%" /> 
+</center>
+<br>
+程式碼：statistics.rmd  
+*註：人氣標準：留言數100以上
+
+<br>
+
+### 6. 績效與推&噓
+ + 高淨推數文的資料點較為分散、報酬範圍較大   
+<br>
+ <center class="half">
+  <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\Scatter_NetPush&Return.png" 
+  alt="Bar_Popularity&Return" width="50%" height="50%" /> 
+ </center>
+<br>
+<br>
+ + 高淨推數文極端報酬比例稍高   
+<br>
+<center class="half">
+  <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\Bar_NetPush&Return.png" 
+  alt="Bar_Popularity&Return" width="50%" height="50%" /> 
+</center>
+<br>
+ *註：淨推數 = 推數-噓數 > 30
+ 
+程式碼：statistics.rmd
+
+<br>
+ 
+### 7. 績效與有無附圖  
+ + 無顯著差異  
+<br>
+ <center class="half">
+  <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\Bar_Picture&Return.png" 
+  alt="Bar_Popularity&Return" width="40%" height="40%" /> <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\Bar2_Picture&Return.png" 
+  alt="Bar_Popularity&Return" width="40%" height="40%" /> 
+ </center>
+<br> 
+
+程式碼：statistics.rmd 
+
+<br>
+ 
+### 8. 績效與情緒分數
+ 
+#### **結論：情緒相關分數變動與績效變動趨勢相近**
+ 
+ + 用詞強烈程度同時包含正向及負向情緒，因此分數較高
+ + 使用中文維度型情感字典
+<br>
+ + 2018/2019
+<br>
+<center class="half">
+  <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\g18.png" 
+  alt="2018" width="40%" height="40%" /> <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\g19.png" 
+  alt="2019" width="40%" height="40%" /> 
+</center>
+<br>
+ + 2020/2021  
+<center class="half">
+  <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\g20.png" 
+  alt="2020" width="40%" height="40%" /> <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\g21.png" 
+  alt="2021" width="40%" height="40%" /> 
+</center>
+<br>
+<font size=1>
+   + 淺藍：用詞強烈程度＝Arousal mean x abs（Valence mean - 5）
+   + 橘：情緒正向/負向程度＝Arousal mean x（Valence mean - 5）
+   + 黑：每日平均績效  
+</font>  
+
+程式碼：Sent_related_graph.r
+
+<br>
+
+### 9. 股價與情緒分數
+
+#### **結論：放大情緒波動後可見與股價存在關係**
+ + 在2018年股價兩次急跌以及2020年疫情爆發時最為明顯  
+<br>
+ <center class="half">
+  <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\stock_price_and_sentiment score.png" 
+  alt="stock_price_and_sentiment score" width="50%" height="50%" /> 
+</center>
+<br>
+<font size=1>
+   + 黑：股價
+   + 橘：情緒正向/負向程度
+</font> 
+
+*註：以最熱門10檔每日股價（佔所有資料1/3左右）除以情緒正負向程度x10(以看出波動大小）???????  
+
+程式碼：Sent_related_graph.r
+
+<br>
+
+### 10. 詞頻表
+
+ + 檢視和「大盤」相關的詞彙，可以看到**外資、美國**、以及**疫情**是這幾年標的文討論的重點  
+ + 檢視和「台積電」相關的詞彙，可以看到**外資、gg(台積電的暱稱)** 常出現在標的文中  
+<br>
+<center class="half">
+  <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\大盤相關詞彙詞頻.png" 
+  alt="大盤相關詞彙詞頻" width="50%" height="50%" /> <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\台積電相關詞彙詞頻.png" 
+  alt="台積電相關詞彙詞頻" width="50%" height="50%" />
+</center>
+<br>  
+程式碼：frequency.rmd
+
+<br>
+
+### 11. 文字雲
+#### **結論：歷年無明顯變動**
+ + 2018(左)：「外資」詞頻進入前五、2019(右)：「美國」跌榜、「貿易戰」上榜
+<center class="half">
+  <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\2018.png" 
+  alt="2018" width="30%" height="30%" /> <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\2019.png" 
+  alt="2019" width="30%" height="30%" />
+</center>
+<br> 
+ + 2020(左)：「疫情」始入榜、2021(右)：「疫情」持續在榜上
+<center class="half">
+  <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\2020.png" 
+  alt="2020" width="30%" height="30%" /> <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\2021.png" 
+  alt="2021" width="30%" height="30%" />
+</center>
+程式碼：wordcloud.r
+
+<br>
+
+### 12. 文本相似度分析
+#### **結論：無明顯差異**
+ + 前五大熱門股票相似度波動無明顯規律  
+<br>
+<center class="half">
+  <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\前五大熱門股相似度.png" 
+  alt="前五大熱門股相似度" width="50%" height="50%" /> 
+</center>  
+ + 前六多發文作者相似度
+ + 其中排名二作者發了兩篇一模一樣的文所以作者二的文本相似度最大是1 
+<br>
+<center class="half">
+  <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\前六多發文作者相似度.png" 
+  alt="前六多發文作者相似度" width="50%" height="50%" /> 
+</center>  
+<br>
+程式碼：hot_5_stock.r/head_six_author.r
+
+<br>
+
+### 13. Topic Modeling
+ 
+ + 從左到右的主題分別和**公司面資料**、**股民主觀詞彙**以及**進退場判斷**的詞彙有關  
+<br>
+<center class="half">
+  <img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\Topic_Modeling.png" 
+  alt="Topic_Modeling" width="50%" height="50%" /> 
+</center>     
+程式碼：frequency.rmd
+
+<br>
+
+四、結論：To be 韭菜 or not to be, that is the question.   
+--------------------------------------------------------
+<br>
+<font size=3>
+<img src="C:\Users\asus\Desktop\code\last_year_R\專案\final_directory\3.jpg" 
+  style="float: right" width="30%" height="30%" /> 
+ 1. 股版年化報酬率每年**未必能超越大盤**  
+ 2. 累積報酬率趨近常態分配  
+ 3. 股市變動與PTT內文**情緒分數趨勢相近**，但目前**尚未觀察出因果關係**  
+ 4. 標的文最終的績效表現與文章熱門程度（推、留言）無顯著關係  
+ 5. 透過詞頻及文字雲觀察股市熱門字詞，歷年無明顯變動
+</font>

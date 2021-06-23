@@ -1,0 +1,79 @@
+---
+title: "unify"
+output: html_document
+---
+  
+  ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+  
+  ```{r}
+library(tidyverse)
+```
+
+```{r}
+count <- 0
+for (doc in stock_2021$Buy_or_sell){
+  count <- count + 1
+  if(doc == "Sell"){
+    stock_2021$Long_or_short[count] <- "Short"}
+}
+```
+
+```{r}
+stock_2018_part <- stock_2018 %>%
+  filter(!(Buy == Sell)) %>%
+  filter(!((Long_term == F)&(Short_term == F))) %>%
+  mutate(Picture_or_not = ifelse((str_detect(Content, "imgur")|str_detect(Pictures_URLs, "imgur")), T, F),
+         Buy_or_sell = ifelse(Buy == T, "Buy", "Sell"),
+         Long_or_short = ifelse(Long_term == T, "Long", "Short")) %>%
+  select(1:13, Buy_or_sell, Long_or_short, Picture_or_not)
+
+stock_2019_part <- stock_2019 %>%
+  filter(!(Buy == Sell)) %>%
+  filter(!((Long_term == F)&(Short_term == F))) %>%
+  mutate(Picture_or_not = ifelse((str_detect(Content, "imgur")|str_detect(Pictures_URLs, "imgur")), T, F),
+         Buy_or_sell = ifelse(Buy == T, "Buy", "Sell"),
+         Long_or_short = ifelse(Long_term == T, "Long", "Short")) %>%
+  select(1:13, Buy_or_sell, Long_or_short, Picture_or_not)
+
+stock_2020_part <- stock_2020 %>%
+  filter(!(Buy == Sell)) %>%
+  filter(!((Long_term == F)&(Short_term == F))) %>%
+  mutate(Buy_or_sell = ifelse(Buy == T, "Buy", "Sell"),
+         Long_or_short = ifelse(Long_term == T, "Long", "Short")) %>%
+  select(1:13, Buy_or_sell, Long_or_short, Picture_or_not)
+
+stock_2021_part <- stock_2021 %>%
+  filter(!(Buy == Sell)) %>%
+  filter(!((Long_term == F)&(Short_term == F))) %>%
+  mutate(Buy_or_sell = ifelse(Buy == T, "Buy", "Sell"),
+         Long_or_short = ifelse(Long_term == T, "Long", "Short")) %>%
+  select(1:13, Buy_or_sell, Long_or_short, Picture_or_not)
+
+stock_all_main <- rbind(stock_2021_part, stock_2020_part, stock_2019_part, stock_2018_part)
+
+stock_all_main <- stock_all_main %>%
+  arrange(desc(Date))
+
+
+```
+
+```{r}
+stock_2018 <- read.csv("finalclean2018.csv", encoding = "UTF8")
+stock_2019 <- read.csv("finalclean2019.csv", encoding = "UTF8")
+stock_2020 <- read.csv("finalclean2020.csv", encoding = "UTF8")
+stock_2021 <- read.csv("finalclean2021.csv", encoding = "UTF8")
+
+stock_all <- rbind(stock_2021, stock_2020, stock_2019, stock_2018)
+
+stock_all <- stock_all %>%
+  arrange(desc(Date))
+
+```

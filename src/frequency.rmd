@@ -1,0 +1,141 @@
+---
+title: "frequency"
+output: html_document
+---
+  
+  ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+  
+```{r}
+library(tidyverse)
+library(lubridate)
+library(tidytext)
+```
+
+```{r}
+#斷詞
+library(jiebaR)
+library(quanteda)
+library(quanteda.textstats)
+library(quanteda.textmodels)
+seg <- worker(user = "seg_words.txt", user_weight = "max")
+docs <- paste0(stock_all$Analysis, stock_all$Mechanism)
+
+docs <- sapply(docs, function(x) gsub(pattern = "\\W", replacement = "", x = x))
+
+docs_segged <- vector("character", length = length(docs))
+for (i in seq_along(docs)) {
+  # Segment each element in docs
+  segged <- segment(docs[i], seg)
+  
+  # Collapse the character vector into a string, separated by space
+  docs_segged[i] <- paste0(segged, collapse = "\u3000")
+}
+
+```
+
+```{r}
+#Remove stop_words
+mystopwords <- readLines("stop_words.txt", n = 732, encoding = "UTF-8")
+mystopwords[733] <- "首先"
+
+stock_text <- stock_all %>%
+  select(Title, Target_name) %>%
+  mutate(number = 1:nrow(stock_all), docs = docs_segged)
+
+#Tidy-format & Document Term Matrix
+tidy_stock_text <- stock_text %>%
+  unnest_tokens(word, docs, token = "regex", pattern = "\u3000") %>%
+  mutate(stop = ifelse(word %in% mystopwords, T, F)) %>%
+  filter(stop == F) %>%
+  select(-stop)
+
+dtm_stock_text <- tidy_stock_text %>%
+  count(word, number) %>%
+  cast_dtm(number, word, n)
+
+```
+
+## Topic Modeling
+
+```{r}
+#Topic modeling
+library(topicmodels)
+
+lda_out <- LDA(dtm_stock_text, k = 3,
+               method = "Gibbs", control = list(seed = 42))
+```
+
+```{r}
+#Plot the Topic Model
+lda_topics <- lda_out %>% 
+  tidy(matrix = "beta")
+
+word_probs <- lda_topics %>% 
+  group_by(topic) %>% 
+  top_n(15, beta) %>% 
+  ungroup() %>%
+  mutate(term2 = fct_reorder(term, beta))
+
+ggplot(
+  word_probs, 
+  aes(x = term2, y = beta, fill = as.factor(topic))
+) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~topic, scales = "free") +
+  coord_flip() +
+  ggtitle("Topic Modeling for PTT Stock") +
+  labs(x = "Term", y = "Beta")
+
+ggsave("Topic_Modeling.png", width = 16, height = 12, units = "cm", dpi = 300)
+
+```
+
+## Tidy Text 詞頻分析
+
+```{r}
+#全部詞頻
+tidy_stock_text %>%
+  count(word) %>%
+  arrange(desc(n))
+```
+
+```{r}
+#特定股票相關詞彙詞頻
+word_counts <- tidy_stock_text %>%
+  filter(Target_name == "台積電") %>%
+  count(word) %>%
+  top_n(15, n) %>%
+  mutate(word2 = fct_reorder(word, n))
+
+ggplot(word_counts, aes(x = word2, y = n)) +
+  geom_col() +
+  coord_flip() +
+  ggtitle("\"台積電\"相關詞彙詞頻") +
+  labs(x = "Word")
+
+ggsave("台積電相關詞彙詞頻.png", width = 16, height = 12, units = "cm", dpi = 300)
+```
+
+## quanteda
+
+```{r}
+# Token object
+stock_tokens <- corpus(stock_text, docid_field = "number", text_field = "docs") %>%
+  tokenizers::tokenize_regex(pattern = "\u3000") %>%
+  tokens()
+
+# Document-term matrix (feature selection)
+q_dfm <- dfm(stock_tokens) %>% 
+  dfm_remove(pattern = readLines("stop_words.txt", n = 732), valuetype = "fixed") %>%
+  dfm_select(pattern = "[\u4E00-\u9FFF]", valuetype = "regex") %>%
+  dfm_trim(min_termfreq = 5) %>%
+  dfm_tfidf()
+```

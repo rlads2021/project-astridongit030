@@ -1,0 +1,151 @@
+---
+title: "Project3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(tidytext)
+stock_all <- read.csv("finalclean_all.csv", encoding = "UTF8")
+stock_return <- read.csv("stock_final.csv", encoding = "UTF8")
+stock_return2 <- stock_return %>%
+  mutate(Year = year(as.Date(Date)),
+         Net_Push = Push - Not_Push,
+         Return2 = ifelse(Long_or_short == "Short", Return *50, Return),
+         Comment_Binned = ifelse(Comment > 100, "Popular", "Normal"),
+         Net_Push_Binned = ifelse(Net_Push > 30, "Recommend", "Normal"),
+         Return_Binned = ifelse(Return > 30, "excellent", ifelse(Return > 10, "great", ifelse(Return > 0, "good", ifelse(Return > -10, "bad", ifelse(Return > -30, "terrible", "loser"))))))
+
+```
+
+```{r}
+#Summary Statistics
+stock_all %>%
+  count(Buy_or_sell)
+
+stock_all %>%
+  count(Long_or_short)
+
+stock_all %>%
+  mutate(Year = year(as.Date(Date))) %>%
+  count(Year)
+
+stock_return2 %>%
+  mutate(Return2 = ifelse(Long_or_short == "Short", Return *50, Return)) %>%
+  group_by(Year) %>%
+  summarise(MeanReturn = mean(Return2))
+```
+
+```{r}
+ggplot(stock_return, aes(Return)) +
+  geom_histogram(binwidth = 1) +
+  xlim(-50, 100) +
+  ggtitle("Return Distribution (binwidth = 1)")
+
+ggsave("Return_Distribution.png", width = 16, height = 12, units = "cm", dpi = 300)
+```
+
+```{r}
+#Return Rank
+stock_return2 %>%
+  arrange(desc(Return)) %>%
+  top_n(5, Return) %>%
+  select(Title, Author, Date, Return2, Net_Push, Comment, Target_name, Category, Buy_or_sell, Long_or_short, Picture_or_not)
+
+stock_return2 %>%
+  arrange(desc(Return)) %>%
+  top_n(-5, Return) %>%
+  select(Title, Author, Date, Return, Net_Push, Comment, Target_name, Category, Buy_or_sell, Long_or_short, Picture_or_not, Mechanism)
+
+stock_return2 %>%
+  group_by(Author) %>%
+  summarise(n = n(), Mean_Return = mean(Return)) %>%
+  filter(n > 5) %>%
+  top_n(-5, Mean_Return) %>%
+  arrange(desc(Mean_Return))
+
+```
+
+```{r}
+#Return & Comment by Year
+ggplot(stock_return2, aes(x = Comment, y = Return, color = as.factor(Year))) +
+  geom_point(size = 0.4, show.legend = FALSE) +
+  facet_wrap(vars(Year)) +
+  ggtitle("Comment & Return")
+  
+ggsave("Scatter_Comment&Return.png", width = 16, height = 12, units = "cm", dpi = 300)
+
+#Popularity & Return
+stock_return2 <- stock_return2 %>%
+  mutate(Return_Range = fct_reorder(Return_Binned, Return))
+
+ggplot(stock_return2) +
+  geom_bar(aes(x = Comment_Binned, fill = Return_Range), position = "fill") +
+  ggtitle("Popularity & Return", subtitle = "Popular：Comment > 100") +
+  scale_fill_brewer(palette = "Reds") +
+  labs(y = "")
+
+ggsave("Bar_Comment&Return.png", width = 16, height = 12, units = "cm", dpi = 300)
+
+```
+
+```{r}
+Return_over_100_count <- stock_return2 %>%
+  filter(Return > 100) %>%
+  count(Year)
+
+Return_over_100_count
+```
+
+```{r}
+#Return & Net_Push
+ggplot(stock_return2, aes(x = Comment, y = Return, color = as.factor(Net_Push_Binned))) +
+  geom_point(size = 0.4, show.legend = FALSE) +
+  facet_wrap(vars(Net_Push_Binned)) +
+  ggtitle("Net_Push & Return", subtitle = "Recommend：Net_Push > 30") 
+
+ggsave("Scatter_NetPush&Return.png", width = 16, height = 12, units = "cm", dpi = 300)
+
+
+
+ggplot(stock_return2) +
+  geom_bar(aes(x = Net_Push_Binned, fill = Return_Range), position = "fill") +
+  ggtitle("Net Push & Return", subtitle = "Recommend：Net Push > 30") +
+  scale_fill_brewer(palette = "Blues") +
+  labs(y = "")
+
+ggsave("Bar_NetPush&Return.png", width = 16, height = 12, units = "cm", dpi = 300)
+
+```
+
+```{r}
+#Picture & Return
+ggplot(stock_return2) +
+  geom_bar(aes(x = Return_Range, fill = Picture_or_not), position = "fill") +
+  ggtitle("Picture & Return") +
+  labs(y = "")
+
+ggsave("Bar_Picture&Return.png", width = 16, height = 12, units = "cm", dpi = 300)
+
+ggplot(stock_return2) +
+  geom_bar(aes(x = Picture_or_not, fill = Return_Range), position = "fill") +
+  ggtitle("Picture & Return") +
+  scale_fill_brewer(palette = "Greens") +
+  labs(y = "")
+
+ggsave("Bar2_Picture&Return.png", width = 16, height = 12, units = "cm", dpi = 300)
+
+```
+
+

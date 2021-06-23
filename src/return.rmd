@@ -1,0 +1,146 @@
+---
+title: "return"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+  
+
+```{r}
+library(tidyverse)
+stock_all <- read.csv("finalclean_all.csv", encoding = "UTF8")
+
+#股票種數
+stock_all %>%
+  group_by(Long_or_short) %>%
+  summarise(n = n_distinct(Target_number))
+
+```
+
+```{r}
+#標的文數前200名的股票
+top_200 <- stock_all %>%
+  count(Target_name) %>%
+  top_n(200, n) %>%
+  arrange(desc(n))
+
+top_200
+```
+
+```{r}
+#標的文數10篇以上的股票
+stock_all %>%
+  count(Target_name) %>%
+  filter(n >= 10) %>%
+  arrange(desc(n))
+
+```
+
+```{r}
+#股價前處理
+stock_price_1_55 <- read_csv("1-55stock_price.csv")
+
+stock_price_1_55$Name <- sapply(stock_price_1_55$Name, function(name){
+  sep_vec <- unlist(str_split(name, ""))
+  trimname <- paste(sep_vec[6:length(sep_vec)], collapse = "")
+  names(trimname) <- NULL
+  return(trimname)
+})
+
+names(stock_price_1_55$Name) <- NULL
+
+stock_price_1_55 <- stock_price_1_55 %>%
+  filter((!is.na(Price_day))&(!is.na(Price_month)))
+```
+
+```{r}
+stock_price_56_100 <- read_csv("56-100stock_price.csv")
+
+stock_price_56_100$Name <- sapply(stock_price_56_100$Name, function(name){
+  sep_vec <- unlist(str_split(name, ""))
+  trimname <- paste(sep_vec[6:length(sep_vec)], collapse = "")
+  names(trimname) <- NULL
+  return(trimname)
+})
+
+names(stock_price_56_100$Name) <- NULL
+
+stock_price_56_100 <- stock_price_56_100 %>%
+  filter((!is.na(Price_day))&(!is.na(Price_month)))
+
+```
+
+```{r}
+stock_price_101_150 <- read_csv("101-150stock_price.csv")
+
+stock_price_101_150$Name <- sapply(stock_price_101_150$Name, function(name){
+  sep_vec <- unlist(str_split(name, ""))
+  trimname <- paste(sep_vec[6:length(sep_vec)], collapse = "")
+  names(trimname) <- NULL
+  return(trimname)
+})
+
+names(stock_price_101_150$Name) <- NULL
+
+stock_price_101_150 <- stock_price_101_150 %>%
+  filter((!is.na(Price_day))&(!is.na(Price_month)))
+
+
+```
+```{r}
+stock_price_151_200 <- read_csv("151-200stock_price.csv")
+
+stock_price_151_200$Name <- sapply(stock_price_151_200$Name, function(name){
+  sep_vec <- unlist(str_split(name, ""))
+  trimname <- paste(sep_vec[6:length(sep_vec)], collapse = "")
+  names(trimname) <- NULL
+  return(trimname)
+})
+
+names(stock_price_151_200$Name) <- NULL
+
+stock_price_151_200 <- stock_price_151_200 %>%
+  filter((!is.na(Price_day))&(!is.na(Price_month)))
+```
+
+
+```{r}
+#計算報酬函數(短期:發文後5個交易日、長期:發文後250個交易日)
+get_return <- function(pricedf, date, stockname, buysell, longshort, timeshort, timelong){
+  if(!(stockname %in% pricedf$Name)){return(NA)}
+  stock_pricedf <- pricedf %>%
+    filter(Name == stockname)
+  date_loc <- as.numeric(grep(TRUE, (as.Date(stock_pricedf$Date) - as.Date(date)) <= 0)[1]) - 1
+  if(is.na(date_loc)){return(NA)}
+  
+  if (longshort == "Short"){
+    if (date_loc <= timeshort){
+      end_price <- stock_pricedf$Price_day[1]
+      begin_price <- stock_pricedf$Price_day[date_loc]
+    }else{
+      end_price <- stock_pricedf$Price_day[date_loc - timeshort + 1]
+      begin_price <- stock_pricedf$Price_day[date_loc]
+    }
+    ifelse(buysell == "Buy", return(100*(end_price - begin_price) / begin_price), return(100*(begin_price - end_price) / begin_price))
+  }
+  
+  if (longshort == "Long"){
+    if (date_loc <= timelong){
+      end_price <- stock_pricedf$Price_month[1]
+      begin_price <- stock_pricedf$Price_day[date_loc]
+    }else{
+      end_price <- stock_pricedf$Price_month[date_loc - timelong + 1]
+      begin_price <- stock_pricedf$Price_day[date_loc]
+    }
+    ifelse(buysell == "Buy", return(100*(end_price - begin_price) / begin_price), return(100*(begin_price - end_price) / begin_price))
+  }
+  
+}
+```

@@ -1,0 +1,177 @@
+---
+title: "Project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+stock_2020 <- read_csv("2020stock.csv")
+library(tidyverse)
+library(lubridate)
+library(jiebaR)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+#改名
+colnames(stock_2020)[colnames(stock_2020) == "title"] <- "Title"
+colnames(stock_2020)[colnames(stock_2020) == "Comments"] <- "Comment"
+colnames(stock_2020)[1] <- "Index"
+```
+
+```{r}
+#濾掉不符格式的標的文
+chosen <- sapply(stock_2020$Content, function(x) !(FALSE %in% (str_detect(x, c("1. 標的：", "2. 分類：", "3. 分析/正文：")))))
+
+stock_2020 <- stock_2020 %>%
+  filter(chosen) %>%
+  filter(str_detect(Title, "\\[標的\\]")) %>%
+  filter((Date != "")&(Author != "")&(Content != "")) %>%
+  filter(!(is.na(Date)|is.na(Author)|is.na(Content)))
+
+```
+
+```{r}
+#改Date格式
+date_split_vec <- strsplit(stock_2020$Date, " ")
+year_vec <- sapply(date_split_vec, function(x) str_sub(x[!(x == "")][5], start = 1, end = 4))
+month_vec <- sapply(date_split_vec, function(x) x[!(x == "")][2])
+day_vec <- sapply(date_split_vec, function(x) x[!(x == "")][3])
+
+date_vec <- paste(year_vec, month_vec, day_vec, sep = "/")
+date_vec <- ymd(date_vec)
+
+#清除DateNA
+stock_2020$Date <- date_vec
+stock_2020 <- stock_2020 %>%
+  filter(!is.na(Date))
+```
+
+```{r}
+#清除主文雜字及空白
+stock_2020$Content <- stock_2020$Content %>%
+  gsub(pattern = "\\s", replacement = "") %>%
+  gsub(pattern = "\\(?例2330\\.TW台積電\\)?", replacement = "") %>%
+  gsub(pattern = "\\(?例2330台積電\\)?", replacement = "") %>%
+  gsub(pattern = "(\\(|\\（|)非?長?期?投?資者，必須有停損機?制?([。]|\\)|\\）|)請?益?免?填?\\)?", replacement = "") %>%
+  gsub(pattern = "多/空/請益/心得", replacement = "")
+```
+
+```{r}
+#篩出各點內容
+count <- 0
+Target <- vector("character")
+Category <- vector("character")
+Analysis <- vector("character")
+
+for (doc in stock_2020$Content){
+  count <- count + 1
+
+  loc_mat <- str_locate_all(doc, c("1.標的：", "2.分類：", "3.分析/正文："))
+  
+  #只處理只有一個格式的
+  if (FALSE %in% sapply(loc_mat, function(x) nrow(x) == 1)) next
+
+  #沒內容的去掉
+  if (loc_mat[[1]][[1, "end"]] + 1 == loc_mat[[2]][[1, "start"]]) next  
+  if (loc_mat[[2]][[1, "end"]] + 1 == loc_mat[[3]][[1, "start"]]) next  
+  
+  Target[count] <- str_sub(doc, start = loc_mat[[1]][[1, "end"]] + 1, end = loc_mat[[2]][[1, "start"]] - 1)
+  Category[count] <- str_sub(doc, start = loc_mat[[2]][[1, "end"]] + 1, end = loc_mat[[3]][[1, "start"]] - 1)
+  Analysis[count] <- str_sub(doc, start = loc_mat[[3]][[1, "end"]] + 1, end = nchar(doc))
+  stock_2020$Content[count] <- str_sub(doc, start = loc_mat[[1]][[1, "start"]], end = nchar(doc))
+  
+}
+```
+
+```{r}
+#篩進退場機制
+count <- 0
+Mechanism <- vector("character")
+for (doc in Analysis){
+  count <- count + 1
+  if (is.na(doc)) next
+  if (doc == "") next
+  if (str_detect(doc, "4.進退場機制：")){
+    loc_mat <- str_locate(doc, "4.進退場機制：")
+    Mechanism[count] <- str_sub(doc, start = loc_mat[[1, "end"]] + 1, end = nchar(doc))
+    Analysis[count] <- str_sub(doc, start = 1, end = loc_mat[[1, "start"]] - 1)
+  }else{next}
+}
+
+```
+
+```{r}
+#建立df, 去除空白內容
+stock_2020 <- stock_2020 %>%
+  mutate(Target = Target, Category = Category, Analysis = Analysis, Mechanism = Mechanism)
+
+stock_2020 <- stock_2020 %>%
+  select(Title, URL, Author, Date, Push, `Not Push`, Comment, Content, `Pictures URLs`, Target, Category, Analysis, Mechanism) %>%
+  filter(!(is.na(Target)|is.na(Category)|is.na(Analysis)))
+
+```
+
+```{r}
+#濾掉請益、心得、多空都提或都沒提的文
+inquire <- str_detect(stock_2020$Category, "請益")
+memo <- str_detect(stock_2020$Category, "心得")
+stock_2020 <- stock_2020[!(inquire|memo), ]
+
+```
+
+```{r}
+#多空辨別
+stock_2020 <- stock_2020 %>%
+  mutate(Buy = ifelse(str_detect(Category, "多"), T, F),
+         Sell = ifelse(str_detect(Category, "空"), T, F),
+         Long_term = ifelse(str_detect(Category, "長"), T, F),
+         Short_term = ifelse(str_detect(Category, "短"), T, F),
+         Picture_or_not = ifelse((str_detect(Content, "imgur")|str_detect(`Pictures URLs`, "imgur")), T, F))
+
+count <- 0
+for (doc in stock_2020$Mechanism){
+  count <- count + 1
+  if(!is.na(doc)){
+    if(str_detect(doc, "(長期投資|長投|長期|長線|不停利|不停損)")){stock_2020$Long_term[count] <- T}
+    if(str_detect(doc, "(短線|放空|退場|出場)")){stock_2020$Short_term[count] <- T}
+    if((!str_detect(doc, "放空"))&(str_detect(doc, "放"))){stock_2020$Short_term[count] <- T}
+    if((!str_detect(doc,"(不停利|不停損)"))&(str_detect(doc, "(停利|停損)"))){stock_2020$Short_term[count] <- T}
+  }
+}
+
+```
+
+```{r}
+#篩出標的名字
+lib_stock_name <- readLines("stock_name.txt")
+lib_stock_number <- readLines("stock_number.txt")
+stock_name <- vector("character")
+stock_number <- vector("character")
+count <- 0
+
+for (doc in stock_2020$Target){
+  count <- count + 1
+  for (name in lib_stock_name){
+    if(str_detect(doc, fixed(name))){stock_name[count] <- name}
+  }
+  for (number in lib_stock_number){
+    if(str_detect(doc, fixed(number))){stock_number[count] <- number}
+  }
+}
+
+stock_2020 <- stock_2020 %>%
+  mutate(Stock_Name = stock_name, Stock_Number = stock_number)
+```
