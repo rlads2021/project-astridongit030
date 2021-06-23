@@ -3,7 +3,7 @@
 ### 1.爬蟲 
  + title&url.py - 使用python從PTT的標題頁面爬取標題以及網址
  + pttstock.py - 從PTT的標題頁面爬取作者、URL、日期、推數、噓數、留言數、內文以及圖片網址
- + 2018stock.csv、2019stock.csv、2020stock.csv、2021stock.csv 資料原始檔
+ + 2018stock.csv、2019stock.csv、2020stock.csv、2021stock.csv 資料原始檔(壓縮檔)
 
 ### 2.資料清洗   
  + cleanr.Rmd - R部分
