@@ -13,10 +13,10 @@
  + finalclean_all.csv - 合併檔
 
 ### 3.資料分析
- + return.rmd - 計算報酬率、敏感度分析
- + statistics.rmd - 計算簡易敘述型統計、作者排名、績效與留言數、績效與推&噓、績效與有無附圖
+ + return.Rmd - 計算報酬率、敏感度分析
+ + statistics.Rmd - 計算簡易敘述型統計、作者排名、績效與留言數、績效與推&噓、績效與有無附圖
  + Sent_related_graph.r - 計算績效與情緒分數、股價與情緒分數
- + frequency.rmd - 詞頻表、Topic Modeling
+ + frequency.Rmd - 詞頻表、Topic Modeling
  + wordcloud.r - 文字雲
  + hot_5_stock.r - 前五大熱門股票相似度
  + head_six_author.r - 前六多發文作者相似度
