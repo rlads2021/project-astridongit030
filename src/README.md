@@ -27,5 +27,6 @@
  + stopwords、股票斷詞 - 內含金融專有名詞的斷詞辭典
  
  ### 4.其他  
+  + final.Rmd - html網頁的rmarkdown
   + google_scraping.py - 原本計畫要爬google地圖評論中一家店的所有標的，受限於本地瀏覽器載入限制而無法載入所有評論故放棄的前專案嘗試
 
